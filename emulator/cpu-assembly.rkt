@@ -8,9 +8,13 @@
 
 (define (exactly v)
   v)
+
+(define (get-digits n)
+  (map string->number (map string (string->list (number->string n)))))
+
 (define example-code (string-join '(
 				    "inp 7"
-				    "hrs -1"
+				    "hrs"
 				    ) "\n"))
 
 (define-syntax match-lambda
@@ -32,18 +36,25 @@
 			   (string-split e " "))
 			 (string-split code "\n")))
   (map (lambda (instruction)
-	 (cons (match (first instruction)
-		 ["inp" 0]
-		 ["cla" 1]
-		 ["add" 2]
-		 ["tac" 3]
-		 ["sft" 4]
-		 ["out" 5]
-		 ["sto" 6]
-		 ["sub" 7]
-		 ["jmp" 8]
-		 ["hrs" 9]
-		 ["nop" -1]) `(,(string->number (second instruction))))) real-code))
+	 (define command-code (match (first instruction)
+				["inp" 0]
+				["cla" 1]
+				["add" 2]
+				["tac" 3]
+				["sft" 4]
+				["out" 5]
+				["sto" 6]
+				["sub" 7]
+				["jmp" 8]
+				["hrs" 9]
+				["nop" -1]))
+	 (cond
+	  [(> (length instruction) 1)
+	   (define command-arg `(,(string->number (second instruction))))
+	   (cons command-code command-arg)]
+	  [else
+	   (list command-code)])) real-code))
+
 (define (split-by lst n)
   (if (not (empty? lst))
       (cons (take lst n) (split-by (drop lst n) n))
