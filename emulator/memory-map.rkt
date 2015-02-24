@@ -4,8 +4,8 @@
  create-memory-map
  change-memory-map)
 
-(define (create-memory-map [template (build-list 98 (lambda (e) 0))])
-  (define start (cons 001 template))
+(define (create-memory-map [pc 1] [template (build-list 98 (lambda (e) -1))])
+  (define start (cons pc template))
   (append start '(800)))
 
 (define (change-memory-map memory-map changes)
