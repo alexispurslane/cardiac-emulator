@@ -1,18 +1,11 @@
 #lang racket
 (require "memory-map.rkt")
+(require "lib.rkt")
 (provide
  run-cardiac-assembly
  cpu-encode
  cpu-execute
  example-code)
-
-(define (exactly v)
-  v)
-
-(define (get-digits n)
-  (map string->number (map string (string->list (number->string n)))))
-(define (concat-digits lst)
-  (string->number (apply string-append (map number->string lst))))
 
 (define example-code (string-join '(
 				    "inp 7"
@@ -20,19 +13,14 @@
 				    "cla 7"
 				    ) "\n"))
 
-(define-syntax match-lambda
-  (syntax-rules ()
-    [(_ (el ...) (args ...) body ...) (lambda (e args ...)
-					(apply (lambda (el ...)
-						 body ...) e))]))
 					; Main function
 
-(define (run-cardiac-assembly start-mem code [input 0] [output 0] [acc 0] [memory-map-no-code (create-memory-map start-mem)])
+(define (run-cardiac-assembly start-mem code [input 0] [output 0] [acc 0] [memory-map-no-code (create-memory-map start-mem)] #:listener [mem-change-callback (lambda (mem) (void))])
   (define memory-map (change-memory-map memory-map-no-code (map (lambda (e i)
 								  `(,e ,(+ start-mem i)))
 								(cpu-encode code)
 								(build-list (length (cpu-encode code)) values))))
-  (cpu-execute (length (cpu-encode code)) memory-map input output acc))
+  (cpu-execute (length (cpu-encode code)) memory-map input output acc mem-change-callback))
 
 (define (cpu-encode code)
   (define real-code (map (lambda (e)
@@ -53,16 +41,11 @@
 	 (cond
 	  [(> (length instruction) 1)
 	   (define command-arg `(,(string->number (second instruction))))
-	   (displayln (concat-digits (cons command-code command-arg)))
 	   (concat-digits (cons command-code command-arg))]
 	  [else
 	   (concat-digits (list command-code))])) real-code))
 
-(define (split-by lst n)
-  (if (not (empty? lst))
-      (cons (take lst n) (split-by (drop lst n) n))
-      '()))
-(define (cpu-execute end-pc memory-map-start input-slot output-slot-start acc-start)
+(define (cpu-execute end-pc memory-map-start input-slot output-slot-start acc-start mem-change-callback)
   (define begin-pc (memory-access memory-map-start 0))
   (define memory-map-code-split (map (lambda (e)
 				       (if (not (= e -1))
@@ -74,13 +57,16 @@
 					  #f))
 		    memory-map-code-split
 		    (build-list (length memory-map-code-split) values))))
+  
   (foldl (lambda (instruction i prev-state)
 	   (define pc (+ begin-pc i))
 	   (define memory-map (or (first prev-state) memory-map-start))
 	   (define acc (or (second prev-state) acc-start))
 	   (define output-slot (or (third prev-state) output-slot-start))
+	   
 	   (match instruction
 	     [`(1 ,mloc)
+	      (mem-change-callback (change-memory-map memory-map `((,input-slot ,mloc))))
 	      (list (change-memory-map memory-map `((,input-slot ,mloc))) acc output-slot)]
 	     [`(2 ,mloc)
 	      (list memory-map (memory-access memory-map mloc) output-slot)]
@@ -91,7 +77,9 @@
 			    (list memory-map acc output-slot))]
 	     [`(5 ,num)  (list memory-map (arithmetic-shift num acc) output-slot)]
 	     [`(6 ,mloc) (list memory-map acc (memory-access memory-map mloc))]
-	     [`(7 ,mloc) (list (change-memory-map memory-map `((,acc ,mloc))) acc output-slot)]
+	     [`(7 ,mloc)
+	      (mem-change-callback (change-memory-map memory-map `((,acc ,mloc))))
+	      (list (change-memory-map memory-map `((,acc ,mloc))) acc output-slot)]
 	     [`(8 ,mloc) (list memory-map (- acc (memory-access memory-map mloc)) output-slot)]
 	     [`(9 ,num) (cpu-execute (remove (sub1 num) code) memory-map input-slot output-slot acc i)]
 	     [else (list memory-map acc output-slot)])) '(#f #f #f) code (build-list (length code) values)))
