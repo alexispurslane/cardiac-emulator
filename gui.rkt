@@ -1,6 +1,7 @@
 #lang racket/gui
 (require "emulator/cpu-assembly.rkt")
 (require "emulator/lib.rkt")
+(require "emulator/memory-map.rkt")
 (define COLS 10)
 
 (define (run-assembly start-mem code [input 0] [output 0] [acc 0])
@@ -13,20 +14,39 @@
   (define canvas (new canvas% [parent frame]))
   (define dc (send canvas get-dc))
   (send frame show #t)
-  (define res (run-cardiac-assembly start-mem code input output acc #:listener (lambda (mem)
-										 (sleep/yield 0.6)
-										 (for-each (lambda (e i)
-											     (define colors (map (lambda (e)
-														   (* (or e 0) 10))
-														 (get-digits e)))
-											     (if (not (equal? colors '(10)))
-												 (send dc set-brush (apply make-object
-															   (cons color% (cons 0 colors))) 'solid)
-												 (send dc set-brush (apply make-object
-															   (cons color% (cons 0 (cons 0 colors)))) 'solid))
-											     (displayln (round (/ i 18)))
-											     (send dc draw-rectangle
-												   (* (modulo i COLS) 50)
-												   (* 50 (floor (/ i COLS)))
-												   50 50)) mem (build-list (length mem) values)))))
+  (define res (run-cardiac-assembly
+	       start-mem
+	       code
+	       input
+	       output
+	       acc
+	       #:listener ; ->
+	       (lambda (mem)
+		 (sleep/yield 0.6)
+		 (for-each (lambda (e i)
+			     (define colors (map (lambda (e)
+						   (* (or e 0) 10))
+						 (get-digits (data-data e))))
+			     (cond
+			      [(= (length colors) 2)
+			       (send dc set-brush (apply make-object
+							 (cons color% (cons 0 colors))) 'solid)]
+			      [(= (length colors) 1)
+			       (send dc set-brush (apply make-object
+							 (cons color% (cons 0 (cons 0 colors)))) 'solid)]
+			      [(= (length colors) 3)
+			       (send dc set-brush (apply make-object
+							 (cons color% colors)) 'solid)])
+			     (send dc draw-rectangle
+				   (* (modulo i COLS) 50)
+				   (* 50 (floor (/ i COLS)))
+				   50 50)
+			     (send dc set-text-mode 'solid)
+			     (send dc set-text-background "white")
+			     (send dc set-text-foreground "black")
+			     (send dc draw-text (if (and (<= 0 (data-data e)) (data-code? e))
+						    (decode-single-inst (data-data e))
+						    (number->string (data-data e)))
+				   (+ (* (modulo i COLS) 50) 6)
+				   (+ (* 50 (floor (/ i COLS))) 20))) mem (build-list (length mem) values)))))
   res)

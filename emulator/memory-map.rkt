@@ -2,20 +2,23 @@
 (provide
  memory-access
  create-memory-map
+ (struct-out data)
  change-memory-map)
 
-(define (create-memory-map [pc 1] [template (build-list 98 (lambda (e) -1))])
-  (define start (cons pc template))
-  (append start '(800)))
+(struct data (data code?) #:transparent)
 
-(define (change-memory-map memory-map changes)
+(define (create-memory-map [pc 1] [template (build-list 98 (lambda (e) (data -1 #f)))])
+  (define start (cons (data pc #f) template))
+  (append start `(,(data 800 #f))))
+
+(define (change-memory-map memory-map changes [code? #f])
   (map (lambda (e i)
 	 (cond
 	  [(not (null? (filter (lambda (e)
 				 (= (second e) i)) changes)))
-	   (first (first (filter (lambda (e)
-				   (= (second e) i)) changes)))]
+	   (data (first (first (filter (lambda (e)
+				   (= (second e) i)) changes))) code?)]
 	  [else e])) memory-map (build-list (length memory-map) values)))
 
 (define (memory-access memory-map idx)
-  (list-ref memory-map idx))
+  (data-data (list-ref memory-map idx)))
