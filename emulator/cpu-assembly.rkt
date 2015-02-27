@@ -12,12 +12,7 @@
 
 
 (define example-code (string-join '(
-				    "inp 7"
-				    "inp 8"
-				    "inp 10"
-				    "inp 97"
-				    "add 97"
-				    "sto 96"
+				    "idi"
 				    ) "\n"))
 
 					; Main function
@@ -44,7 +39,10 @@
 			       [`(7 ,n) (string-append "sto " (number->string n))]
 			       [`(8 ,n) (string-append "sub " (number->string n))]
 			       [`(9 ,n) (string-append "jmp " (number->string n))]
-			       [`(10)   "hrs"])))
+			       [`(10)   "hrs"]
+			       [`(11)   "nom"]
+			       [`(12)   "idi"]
+			       [`(13)   "lit"])))
 
 (define (cpu-decode code)
   (define diss-list (map decode-single-inst code))
@@ -65,7 +63,10 @@
 				["sto" 7]
 				["sub" 8]
 				["jmp" 9]
-				["hrs" 10]))
+				["hrs" 10]
+				["nom" 11]
+				["idi" 12]
+				["lit" 13]))
 	 (cond
 	  [(> (length instruction) 1)
 	   (define command-arg `(,(string->number (second instruction))))
@@ -78,7 +79,11 @@
   (define memory-map-code-split (map (lambda (el)
 				       (define e (data-data el))
 				       (if (not (= e -1))
-					   (list (first (get-digits e)) (concat-digits (rest (get-digits e))))
+					   (cond
+					    [(= (length (get-digits e)) 3)
+					     (list (first (get-digits e)) (concat-digits (rest (get-digits e))))]
+					    [(= (length (get-digits e)) 2)
+					     (list e)])
 					   '(-1 -1))) (take (drop memory-map-start 1) 98)))
   
   (define code (filter exactly (map (lambda (e i)
@@ -92,25 +97,75 @@
 	   (define memory-map (or (first prev-state) memory-map-start))
 	   (define acc (or (second prev-state) acc-start))
 	   (define output-slot (or (third prev-state) output-slot-start))
+	   (define mode (fourth prev-state))
 	   
 	   (match instruction
 	     [`(1 ,mloc)
-	      (mem-change-callback (change-memory-map memory-map `((,input-slot ,mloc))))
-	      (list (change-memory-map memory-map `((,input-slot ,mloc))) acc output-slot)]
+	      (cond
+	       [(equal? mode 'normal)
+		(mem-change-callback (change-memory-map memory-map `((,input-slot ,mloc))))
+		(list (change-memory-map memory-map `((,input-slot ,mloc))) acc output-slot mode)]
+	       [(equal? mode 'indirect)
+		(mem-change-callback (change-memory-map memory-map `((,input-slot ,(memory-access memory-map mloc)))))
+		(list (change-memory-map memory-map `((,input-slot ,(memory-access memory-map mloc)))) acc output-slot mode)])]
 	     [`(2 ,mloc)
-	      (list memory-map (memory-access memory-map mloc) output-slot)]
+	      (cond
+	       [(equal? mode 'normal)
+		(list memory-map (memory-access memory-map mloc) output-slot mode)]
+	       [(equal? mode 'literal)
+		(list memory-map mloc output-slot mode)]
+	       [(equal? mode 'indirect)
+		(list memory-map (memory-access memory-map (memory-access memory-map mloc)) output-slot mode)])]
 	     [`(3 ,mloc)
-	      (list memory-map (+ acc (memory-access memory-map mloc)) output-slot)]
+	      (cond
+	       [(equal? mode 'normal)
+		(list memory-map (+ acc (memory-access memory-map mloc)) output-slot mode)]
+	       [(equal? mode 'literal)
+		(list memory-map (+ acc mloc) output-slot mode)]
+	       [(equal? mode 'indirect)
+		(list memory-map (+ acc (memory-access memory-map (memory-access memory-map mloc))) output-slot mode)])]
 	     [`(4 ,num) (if (negative? acc)
-			    (cpu-execute memory-map input-slot output-slot acc (+ pc num))
-			    (list memory-map acc output-slot))]
-	     [`(5 ,num)  (list memory-map (arithmetic-shift num acc) output-slot)]
-	     [`(6 ,mloc) (list memory-map acc (memory-access memory-map mloc))]
+			    (cpu-execute (change-memory-map memory-map `((0 ,num))) input-slot output-slot acc)
+			    (list memory-map acc output-slot mode))]
+	     [`(5 ,num)
+	      (cond
+	       [(equal? mode 'normal)
+		(list memory-map (arithmetic-shift num acc) output-slot mode)]
+	       [(equal? mode 'literal)
+		(list memory-map (arithmetic-shift num acc) output-slot mode)]
+	       [(equal? mode 'indirect)
+		(list memory-map (arithmetic-shift (memory-access memory-map num) acc) output-slot mode)])]
+	     [`(6 ,mloc)
+	      (cond
+	       [(equal? mode 'normal)
+		(list memory-map (memory-access memory-map mloc) output-slot mode)]
+	       [(equal? mode 'literal)
+		(list memory-map mloc output-slot mode)]
+	       [(equal? mode 'indirect)
+		(list memory-map acc (memory-access memory-map (memory-access memory-map mloc)) mode)])]
 	     [`(7 ,mloc)
-	      (mem-change-callback (change-memory-map memory-map `((,acc ,mloc))))
-	      (list (change-memory-map memory-map `((,acc ,mloc))) acc output-slot)]
-	     [`(8 ,mloc) (list memory-map (- acc (memory-access memory-map mloc)) output-slot)]
-	     [`(9 ,num) (cpu-execute (remove (sub1 num) code) memory-map input-slot output-slot acc i)]
-	     [else (list memory-map acc output-slot)])) '(#f #f #f) code (build-list (length code) values)))
+	      (cond
+	       [(equal? mode 'normal)
+		(mem-change-callback (change-memory-map memory-map `((,acc ,mloc))))
+		(list (change-memory-map memory-map `((,acc ,mloc))) acc output-slot mode)]
+	       [(equal? mode 'literal)
+		(mem-change-callback (change-memory-map memory-map `((,acc ,mloc))))
+		(list (change-memory-map memory-map `((,acc ,mloc))) acc output-slot mode)]
+	       [(equal? mode 'indirect)
+		(mem-change-callback (change-memory-map memory-map `((,acc ,(memory-access memory-map mloc)))))
+		(list (change-memory-map memory-map `((,acc ,(memory-access memory-map mloc)))) acc output-slot mode)])]
+	     [`(8 ,mloc)
+	      (cond
+	       [(equal? mode 'normal)
+		(list memory-map (- acc (memory-access memory-map mloc)) output-slot mode)]
+	       [(equal? mode 'literal)
+		(list memory-map (- acc mloc) output-slot mode)]
+	       [(equal? mode 'indirect)
+		(list memory-map (- acc (memory-access memory-map (memory-access memory-map mloc))) output-slot mode)])]
+	     [`(9 ,num) (cpu-execute (change-memory-map memory-map `((0 ,num))) memory-map input-slot output-slot acc i)]
+	     [`(11) (list memory-map acc output-slot 'normal)]
+	     [`(12) (list memory-map acc output-slot 'indirect)]
+	     [`(13) (list memory-map acc output-slot 'literal)]
+	     [else (list memory-map acc output-slot mode)])) '(#f #f #f normal) code (build-list (length code) values)))
 
 
