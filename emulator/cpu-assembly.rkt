@@ -12,12 +12,8 @@
 
 
 (define example-code (string-join '(
-				    "inp 7"
-				    "inp 8"
-				    "inp 10"
-				    "inp 97"
-				    "add 97"
-				    "sto 96"
+				    "lit"
+				    "cla 10"
 				    "nom"
 				    ) "\n"))
 
@@ -28,6 +24,7 @@
 								  `(,e ,(+ start-mem i)))
 								(cpu-encode code)
 								(build-list (length (cpu-encode code)) values)) #t))
+  (mem-change-callback memory-map)
   (cpu-execute (length (cpu-encode code)) memory-map input output acc mem-change-callback))
 
 (define decode-single-inst (lambda (instr)
@@ -84,7 +81,6 @@
   (define begin-pc (memory-access memory-map-start 0))
   (define memory-map-code-split (map (lambda (el)
 				       (define e (data-data el))
-				       (displayln el)
 				       (if (not (equal? e -1))
 					   (list (first (get-digits e)) (concat-digits (rest (get-digits e))))
 					   '(-1 -1))) (take (drop memory-map-start 1) 98)))
