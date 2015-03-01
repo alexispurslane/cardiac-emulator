@@ -101,11 +101,8 @@
 	   (define acc (or (second prev-state) acc-start))
 	   (define output-slot (or (third prev-state) output-slot-start))
 	   (define mode (fourth prev-state))
-	   (displayln instruction)
 	   
-	   (match (if (not (equal? (first instruction) 0))
-		      (list (first (get-digits (first instruction))) (concat-digits (rest (get-digits (first instruction)))))
-		      instruction)
+	   (match instruction
 	     [`(1 ,mloc)
 	      (cond
 	       [(equal? mode 'normal)
