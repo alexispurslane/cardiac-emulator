@@ -20,8 +20,5 @@
 				   (= (second e) i)) changes))) code?)]
 	  [else e])) memory-map (build-list (length memory-map) values)))
 
-(define (memory-access memory-map idx [acc 0] [pc (memory-access 0 memory-map)])
-  (match idx
-    ["acc"       acc]
-    ["pc"        pc]
-    [(? number?) (data-data (list-ref memory-map idx))]))
+(define (memory-access memory-map idx)
+  (data-data (list-ref memory-map idx)))

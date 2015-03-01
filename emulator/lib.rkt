@@ -8,7 +8,12 @@
   v)
 
 (define (get-digits n)
-  (or (map string->number (map string (string->list (number->string n)))) 0))
+  (or (map string->number (map string (string->list (if (number? n)
+							(number->string n)
+							n)))) 0))
 
 (define (concat-digits lst)
-  (or (string->number (apply string-append (map number->string lst))) 0))
+  (or (string->number (apply string-append (map (lambda (e)
+						  (if (number? e)
+						      (number->string e)
+						      e)) lst))) 0))

@@ -12,7 +12,9 @@
 
 
 (define example-code (string-join '(
-				    "idi"
+				    "lit"
+				    "cla 8"
+				    "nom"
 				    ) "\n"))
 
 					; Main function
@@ -63,31 +65,31 @@
 				["sto" 7]
 				["sub" 8]
 				["jmp" 9]
-				["hrs" 10]
-				["nom" 11]
-				["idi" 12]
-				["lit" 13]))
+				["hrs" "010"]
+				["nom" "011"]
+				["idi" "012"]
+				["lit" "013"]))
 	 (cond
 	  [(> (length instruction) 1)
 	   (define command-arg `(,(string->number (second instruction))))
 	   (concat-digits (cons command-code command-arg))]
 	  [else
-	   (concat-digits (list command-code))])) real-code))
+	   command-code])) real-code))
 
 (define (cpu-execute end-pc memory-map-start input-slot output-slot-start acc-start mem-change-callback)
   (define begin-pc (memory-access memory-map-start 0))
   (define memory-map-code-split (map (lambda (el)
 				       (define e (data-data el))
-				       (if (not (= e -1))
+				       (if (not (equal? e -1))
 					   (cond
-					    [(= (length (get-digits e)) 3)
+					    [(equal? (length (get-digits e)) 3)
 					     (list (first (get-digits e)) (concat-digits (rest (get-digits e))))]
-					    [(= (length (get-digits e)) 2)
+					    [(equal? (length (get-digits e)) 2)
 					     (list e)])
 					   '(-1 -1))) (take (drop memory-map-start 1) 98)))
   
   (define code (filter exactly (map (lambda (e i)
-				      (if (and (not (= (first e) -1)) (>= i (sub1 begin-pc)))
+				      (if (and (not (equal? (first e) -1)) (>= i (sub1 begin-pc)))
 					  e
 					  #f))
 				    memory-map-code-split
@@ -98,8 +100,11 @@
 	   (define acc (or (second prev-state) acc-start))
 	   (define output-slot (or (third prev-state) output-slot-start))
 	   (define mode (fourth prev-state))
+	   (displayln mode)
 	   
-	   (match instruction
+	   (match (if (not (equal? (first instruction) 0))
+		      (list (first (get-digits (first instruction))) (concat-digits (rest (get-digits (first instruction)))))
+		      instruction)
 	     [`(1 ,mloc)
 	      (cond
 	       [(equal? mode 'normal)
@@ -163,9 +168,9 @@
 	       [(equal? mode 'indirect)
 		(list memory-map (- acc (memory-access memory-map (memory-access memory-map mloc))) output-slot mode)])]
 	     [`(9 ,num) (cpu-execute (change-memory-map memory-map `((0 ,num))) memory-map input-slot output-slot acc i)]
-	     [`(11) (list memory-map acc output-slot 'normal)]
-	     [`(12) (list memory-map acc output-slot 'indirect)]
-	     [`(13) (list memory-map acc output-slot 'literal)]
+	     [`(0 11) (list memory-map acc output-slot 'normal)]
+	     [`(0 12) (list memory-map acc output-slot 'indirect)]
+	     [`(0 13) (list memory-map acc output-slot 'literal)]
 	     [else (list memory-map acc output-slot mode)])) '(#f #f #f normal) code (build-list (length code) values)))
 
 
