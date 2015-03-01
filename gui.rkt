@@ -22,6 +22,7 @@
 	       acc
 	       #:listener ; ->
 	       (lambda (mem)
+		 (sleep/yield 0.3)
 		 (for-each (lambda (e i)
 			     (define colors (map (lambda (e)
 						   (* (or e 0) 10))
