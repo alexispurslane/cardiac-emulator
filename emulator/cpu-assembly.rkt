@@ -24,6 +24,7 @@
 								  `(,e ,(+ start-mem i)))
 								(cpu-encode code)
 								(build-list (length (cpu-encode code)) values)) #t))
+  (mem-change-callback memory-map)
   (cpu-execute (length (cpu-encode code)) memory-map input output acc mem-change-callback))
 
 (define decode-single-inst (lambda (instr)
@@ -41,10 +42,10 @@
 			       [`(7 ,n) (string-append "sto " (number->string n))]
 			       [`(8 ,n) (string-append "sub " (number->string n))]
 			       [`(9 ,n) (string-append "jmp " (number->string n))]
-			       [`(10)   "hrs"]
-			       [`(11)   "nom"]
-			       [`(12)   "idi"]
-			       [`(13)   "lit"])))
+			       [`(0 10)   "hrs"]
+			       [`(0 11)   "nom"]
+			       [`(0 12)   "idi"]
+			       [`(0 13)   "lit"])))
 
 (define (cpu-decode code)
   (define diss-list (map decode-single-inst code))

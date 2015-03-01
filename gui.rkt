@@ -22,7 +22,6 @@
 	       acc
 	       #:listener ; ->
 	       (lambda (mem)
-		 (sleep/yield 0.6)
 		 (for-each (lambda (e i)
 			     (define colors (map (lambda (e)
 						   (* (or e 0) 10))
@@ -44,9 +43,11 @@
 			     (send dc set-text-mode 'solid)
 			     (send dc set-text-background "white")
 			     (send dc set-text-foreground "black")
-			     (send dc draw-text (if (and (<= 0 (data-data e)) (data-code? e))
-						    (decode-single-inst (data-data e))
-						    (number->string (data-data e)))
+			     (send dc draw-text (cond
+						 [(and (number? (data-data e)) (<= 0 (data-data e)) (data-code? e))
+						  (decode-single-inst (data-data e))]
+						 [(string? (data-data e)) (decode-single-inst (data-data e))]
+						 [else (number->string (data-data e))])
 				   (+ (* (modulo i COLS) 50) 6)
 				   (+ (* 50 (floor (/ i COLS))) 20))) mem (build-list (length mem) values)))))
   res)
