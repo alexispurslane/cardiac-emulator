@@ -13,7 +13,7 @@
 
 (define example-code (string-join '(
 				    "lit"
-				    "cla 8"
+				    "cla 10"
 				    "nom"
 				    ) "\n"))
 
@@ -82,11 +82,7 @@
   (define memory-map-code-split (map (lambda (el)
 				       (define e (data-data el))
 				       (if (not (equal? e -1))
-					   (cond
-					    [(equal? (length (get-digits e)) 3)
-					     (list (first (get-digits e)) (concat-digits (rest (get-digits e))))]
-					    [(equal? (length (get-digits e)) 2)
-					     (list e)])
+					   (list (first (get-digits e)) (concat-digits (rest (get-digits e))))
 					   '(-1 -1))) (take (drop memory-map-start 1) 98)))
   
   (define code (filter exactly (map (lambda (e i)
@@ -101,11 +97,8 @@
 	   (define acc (or (second prev-state) acc-start))
 	   (define output-slot (or (third prev-state) output-slot-start))
 	   (define mode (fourth prev-state))
-	   (displayln mode)
 	   
-	   (match (if (not (equal? (first instruction) 0))
-		      (list (first (get-digits (first instruction))) (concat-digits (rest (get-digits (first instruction)))))
-		      instruction)
+	   (match instruction
 	     [`(1 ,mloc)
 	      (cond
 	       [(equal? mode 'normal)
