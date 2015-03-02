@@ -12,9 +12,12 @@
 
 
 (define example-code (string-join '(
+				    "jmp 3"
+				    "out 98"
 				    "lit"
-				    "cla 10"
+				    "out 2"
 				    "nom"
+				    "hrs"
 				    ) "\n"))
 
 					; Main function
@@ -25,7 +28,7 @@
 								(cpu-encode code)
 								(build-list (length (cpu-encode code)) values)) #t))
   (mem-change-callback memory-map)
-  (cpu-execute (length (cpu-encode code)) memory-map input output acc mem-change-callback))
+  (cpu-execute memory-map input output acc mem-change-callback))
 
 (define decode-single-inst (lambda (instr)
 			     (define split-code (cons
@@ -54,7 +57,7 @@
 (define (cpu-encode code)
   (define real-code (map (lambda (e)
 			   (string-split e " "))
-			 (string-split code "\n")))
+			 (map string-trim (string-split code "\n"))))
   (map (lambda (instruction)
 	 (define command-code (match (first instruction)
 				["inp" 1]
@@ -77,8 +80,9 @@
 	  [else
 	   command-code])) real-code))
 
-(define (cpu-execute end-pc memory-map-start input-slot output-slot-start acc-start mem-change-callback)
-  (define begin-pc (memory-access memory-map-start 0))
+(define (cpu-execute memory-map-start input-slot output-slot-start acc-start mem-change-callback
+		     [begin-pc (memory-access memory-map-start 0)]
+		     #:prev-pc [prev-pc begin-pc])
   (define memory-map-code-split (map (lambda (el)
 				       (define e (data-data el))
 				       (if (not (equal? e -1))
@@ -124,7 +128,8 @@
 	       [(equal? mode 'indirect)
 		(list memory-map (+ acc (memory-access memory-map (memory-access memory-map mloc))) output-slot mode)])]
 	     [`(4 ,num) (if (negative? acc)
-			    (cpu-execute (change-memory-map memory-map `((0 ,num))) input-slot output-slot acc)
+			    (cpu-execute (change-memory-map memory-map `((,num 0))) input-slot output-slot acc
+					 mem-change-callback #:prev-pc pc)
 			    (list memory-map acc output-slot mode))]
 	     [`(5 ,num)
 	      (cond
@@ -137,9 +142,9 @@
 	     [`(6 ,mloc)
 	      (cond
 	       [(equal? mode 'normal)
-		(list memory-map (memory-access memory-map mloc) output-slot mode)]
+		(list memory-map acc (memory-access memory-map mloc) mode)]
 	       [(equal? mode 'literal)
-		(list memory-map mloc output-slot mode)]
+		(list memory-map acc mloc mode)]
 	       [(equal? mode 'indirect)
 		(list memory-map acc (memory-access memory-map (memory-access memory-map mloc)) mode)])]
 	     [`(7 ,mloc)
@@ -161,10 +166,14 @@
 		(list memory-map (- acc mloc) output-slot mode)]
 	       [(equal? mode 'indirect)
 		(list memory-map (- acc (memory-access memory-map (memory-access memory-map mloc))) output-slot mode)])]
-	     [`(9 ,num) (cpu-execute (change-memory-map memory-map `((0 ,num))) memory-map input-slot output-slot acc i)]
+	     [`(9 ,num)
+	      (cpu-execute (change-memory-map memory-map `((,num 0))) input-slot output-slot acc
+			   mem-change-callback #:prev-pc pc)]
+	     [`(0 10) (cpu-execute (change-memory-map memory-map `((,(add1 prev-pc) 0))) input-slot output-slot acc
+				     mem-change-callback #:prev-pc pc)]
 	     [`(0 11) (list memory-map acc output-slot 'normal)]
 	     [`(0 12) (list memory-map acc output-slot 'indirect)]
 	     [`(0 13) (list memory-map acc output-slot 'literal)]
-	     [else (list memory-map acc output-slot mode)])) '(#f #f #f normal) code (build-list (length code) values)))
+	     [else (list memory-map acc output-slot mode)])) `(#f ,acc-start #f normal) code (build-list (length code) values)))
 
 
